@@ -31,7 +31,7 @@ func (s *Store) GetList(w http.ResponseWriter, r *http.Request) {
 	if stateFilterQuery != "" {
 		stateFilterList = strings.Split(stateFilterQuery, ",")
 		if err := models.ValidateStateFilter(stateFilterList); err != nil {
-			log.Error(err, nil)
+			log.ErrorC("GetList valid", err, nil)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -39,7 +39,7 @@ func (s *Store) GetList(w http.ResponseWriter, r *http.Request) {
 
 	results, err := s.GetInstances(stateFilterList)
 	if err != nil {
-		log.Error(err, nil)
+		log.ErrorC("GetList getin", err, nil)
 		handleErrorType(err, w)
 		return
 	}
@@ -60,7 +60,7 @@ func (s *Store) Get(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 	instance, err := s.GetInstance(id)
 	if err != nil {
-		log.Error(err, nil)
+		log.ErrorC("Get get", err, nil)
 		handleErrorType(err, w)
 		return
 	}
@@ -80,7 +80,7 @@ func (s *Store) Add(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	instance, err := unmarshalInstance(r.Body, true)
 	if err != nil {
-		log.Error(err, nil)
+		log.ErrorC("Add json", err, nil)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -112,7 +112,7 @@ func (s *Store) Update(w http.ResponseWriter, r *http.Request) {
 
 	instance, err := unmarshalInstance(r.Body, false)
 	if err != nil {
-		log.Error(err, nil)
+		log.ErrorC("Update json", err, nil)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -120,7 +120,7 @@ func (s *Store) Update(w http.ResponseWriter, r *http.Request) {
 	// Get the current document to check the state of instance
 	currentInstance, err := s.GetInstance(id)
 	if err != nil {
-		log.Error(err, nil)
+		log.ErrorC("Update get", err, nil)
 		handleErrorType(err, w)
 		return
 	}
@@ -237,7 +237,7 @@ func (s *Store) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = s.UpdateInstance(id, instance); err != nil {
-		log.Error(err, nil)
+		log.ErrorC("Update upd", err, nil)
 		handleErrorType(err, w)
 		return
 	}
@@ -295,13 +295,13 @@ func (s *Store) UpdateObservations(w http.ResponseWriter, r *http.Request) {
 
 	observations, err := strconv.ParseInt(insert, 10, 64)
 	if err != nil {
-		log.Error(err, nil)
+		log.ErrorC("UpdateObservations atoi", err, nil)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err = s.UpdateObservationInserted(id, observations); err != nil {
-		log.Error(err, nil)
+		log.ErrorC("UpdateObservations up", err, nil)
 		handleErrorType(err, w)
 	}
 }
@@ -345,14 +345,14 @@ func handleErrorType(err error, w http.ResponseWriter) {
 }
 
 func internalError(w http.ResponseWriter, err error) {
-	log.Error(err, nil)
+	log.ErrorC("internalError", err, nil)
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
 func writeBody(w http.ResponseWriter, bytes []byte) {
 	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write(bytes); err != nil {
-		log.Error(err, nil)
+		log.ErrorC("writeBody", err, nil)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

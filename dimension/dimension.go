@@ -27,7 +27,7 @@ func (s *Store) GetNodes(w http.ResponseWriter, r *http.Request) {
 
 	results, err := s.GetDimensionNodesFromInstance(id)
 	if err != nil {
-		log.Error(err, nil)
+		log.ErrorC("GetNodes get", err, nil)
 		handleErrorType(err, w)
 		return
 	}
@@ -50,7 +50,7 @@ func (s *Store) GetUnique(w http.ResponseWriter, r *http.Request) {
 
 	values, err := s.GetUniqueDimensionValues(id, dimension)
 	if err != nil {
-		log.Error(err, nil)
+		log.ErrorC("GetUnique get", err, nil)
 		handleErrorType(err, w)
 		return
 	}
@@ -71,13 +71,29 @@ func (s *Store) Add(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 	option, err := unmarshalDimensionCache(r.Body)
 	if err != nil {
-		log.Error(err, nil)
+		log.ErrorC("Add json", err, nil)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	option.InstanceID = id
 	if err := s.AddDimensionToInstance(option); err != nil {
-		log.Error(err, nil)
+		log.ErrorC("Add add", err, nil)
+		handleErrorType(err, w)
+	}
+}
+
+// AddBatch of dimensions to a specific instance
+func (s *Store) AddBatch(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	options, err := unmarshalDimensionBatch(r.Body, id)
+	if err != nil {
+		log.ErrorC("AddBatch json", err, nil)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.AddDimensionBatchToInstance(options, id); err != nil {
+		log.ErrorC("AddBatch add", err, nil)
 		handleErrorType(err, w)
 	}
 }
@@ -92,12 +108,12 @@ func (s *Store) AddNodeID(w http.ResponseWriter, r *http.Request) {
 
 	dim := models.DimensionOption{Name: dimensionName, Option: value, NodeID: nodeID, InstanceID: id}
 	if err := s.UpdateDimensionNodeID(&dim); err != nil {
-		log.Error(err, nil)
+		log.ErrorC("AddNodeID up", err, nil)
 		handleErrorType(err, w)
 	}
 }
 
-// CreateDataset manages the creation of a dataset from a reader
+// unmarshalDimensionCache manages the creation of a dataset from a reader
 func unmarshalDimensionCache(reader io.Reader) (*models.CachedDimensionOption, error) {
 	bytes, err := ioutil.ReadAll(reader)
 	if err != nil {
@@ -118,6 +134,33 @@ func unmarshalDimensionCache(reader io.Reader) (*models.CachedDimensionOption, e
 	return &option, nil
 }
 
+// unmarshalDimensionBatch manages the creation of a dataset from a reader
+func unmarshalDimensionBatch(reader io.Reader, instanceID string) (*[]models.CachedDimensionOption, error) {
+	bytes, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, errors.New("Failed to read message body")
+	}
+	if len(bytes) == 0 {
+		return nil, errors.New("Empty message body")
+	}
+
+	var options models.BatchOfCachedDimensionOptions
+
+	if err = json.Unmarshal(bytes, &options); err != nil {
+		log.Trace("flake", log.Data{"body": string(bytes)})
+		return nil, errors.New("Failed to parse json body")
+	}
+
+	for _, option := range options.Options {
+		option.InstanceID = instanceID
+		if option.Name == "" || (option.Option == "" && option.CodeList == "") {
+			return nil, errors.New("Missing properties in JSON")
+		}
+	}
+
+	return &options.Options, nil
+}
+
 func handleErrorType(err error, w http.ResponseWriter) {
 	status := http.StatusInternalServerError
 
@@ -130,14 +173,14 @@ func handleErrorType(err error, w http.ResponseWriter) {
 }
 
 func internalError(w http.ResponseWriter, err error) {
-	log.Error(err, nil)
+	log.ErrorC("internalError", err, nil)
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
 func writeBody(w http.ResponseWriter, bytes []byte) {
 	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write(bytes); err != nil {
-		log.Error(err, nil)
+		log.ErrorC("writeBody", err, nil)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
