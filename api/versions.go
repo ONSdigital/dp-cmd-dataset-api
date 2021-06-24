@@ -401,6 +401,10 @@ func (api *DatasetAPI) updateVersion(ctx context.Context, body io.ReadCloser, ve
 			return nil, nil, nil, err
 		}
 
+		if versionUpdate.State == models.PublishedState {
+			versionUpdate.CollectionID = ""
+		}
+
 		if err := api.dataStore.Backend.UpdateVersion(versionUpdate.ID, versionUpdate); err != nil {
 			log.Event(ctx, "putVersion endpoint: failed to update version document", log.ERROR, log.Error(err), data)
 			return nil, nil, nil, err
